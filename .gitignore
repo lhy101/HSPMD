@@ -1,0 +1,93 @@
+*.pyc
+*.svg
+*.png
+*.csv
+*.tar.gz*
+*.pkl.gz
+.dataset
+build/
+test_time/
+tests/core.*
+.vscode/
+CIFAR_10/
+CIFAR_100/
+update.sh
+cmake/config.cmake
+.hypothesis/
+examples/hetero/_cache.pkl
+examples/hetero/experiments/
+examples/hetero/data/
+examples/malleus/data/
+examples/efficiency/exp
+examples/efficiency/draw
+third_party/nccl/
+examples/hotspa/data/
+examples/hydraulis/data/
+examples/hydraulis/*.pkl
+examples/hydraulis/func_call/
+examples/hydraulis/dataset_analysis/
+examples/hydraulis/results
+examples/hydraulis/draw
+
+# Python
+*.png
+*.json
+*.txt
+.mypy_cache
+*/*.pyc
+*/*.so*
+*/**/__pycache__
+*/**/*.dylib*
+*/**/*.pyc
+*/**/*.pyd
+*/**/*.so*
+*/**/**/*.pyc
+*/**/**/**/*.pyc
+*/**/**/**/**/*.pyc
+build/
+dist/
+env/
+eggs/
+logs/
+ckpt/
+
+# IPython notebook checkpoints
+.ipynb_checkpoints
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# VSCode
+.vscode
+
+# PyCharm
+.idea
+
+# DS_Store
+.DS_Store
+
+# grpc
+hspmd/impl/communication/rpc
+*_pb2.py
+*_pb2.pyi
+*_pb2_grpc.py
+*_pb2_grpc.pyi
+
+# Codegen
+python/hspmd/_binding/autograd/ops/generated/
+python/hspmd/_binding/graph/generated
+
+# third party
+# hspmd/flash_attn
+
+# Open Source
+**/env_4090.sh
+**/env_A100.sh
+**/host.yaml
