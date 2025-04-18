@@ -11,8 +11,8 @@ from typing import Dict, List, Tuple, Union
 import numpy
 import torch
 
-from .blendedHetuDatasetConfig import BlendedHetuDatasetConfig
-from .hetuDataset import HetuDataset
+from .blendedHSPMDDatasetConfig import BlendedHSPMDDatasetConfig
+from .hspmdDataset import HSPMDDataset
 from .utils import normalize
 
 logger = logging.getLogger(__name__)
@@ -23,10 +23,10 @@ _VERBOSE = False
 class BlendedDataset(torch.utils.data.Dataset):
     def __init__(
         self,
-        datasets: List[HetuDataset],
+        datasets: List[HSPMDDataset],
         weights: List[float],
         size: int,
-        config: BlendedHetuDatasetConfig,
+        config: BlendedHSPMDDatasetConfig,
     ) -> None:
         assert len(datasets) < 32767
         assert len(datasets) == len(weights)
@@ -35,7 +35,7 @@ class BlendedDataset(torch.utils.data.Dataset):
 
         # Alert user to unnecessary blending
         if len(datasets) == 1:
-            print(f"Building a BlendedDataset for a single HetuDataset")
+            print(f"Building a BlendedDataset for a single HSPMDDataset")
 
         weights = normalize(weights)
 

@@ -43,7 +43,7 @@ def _vocab_size_with_padding(orig_vocab_size, args):
     return after
 
 
-class HetuTokenizer(ABC):
+class HSPMDTokenizer(ABC):
     """Abstract class for tokenizer."""
 
     def __init__(self, name):
@@ -100,7 +100,7 @@ class HetuTokenizer(ABC):
         raise NotImplementedError('MASK is not provided for {} '
                                   'tokenizer'.format(self.name))
 
-class _GPT2BPETokenizer(HetuTokenizer):
+class _GPT2BPETokenizer(HSPMDTokenizer):
     """Original GPT2 BPE tokenizer."""
 
     def __init__(self, vocab_file, merge_file):

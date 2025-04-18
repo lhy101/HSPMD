@@ -6,8 +6,8 @@ import numpy as np
 from tqdm import tqdm
 from types import SimpleNamespace
 from .indexed_dataset import MMapIndexedDataset
-from .blendedHetuDatasetConfig import BlendedHetuDatasetConfig
-from .hetuDataset import HetuDataset
+from .blendedHSPMDDatasetConfig import BlendedHSPMDDatasetConfig
+from .hspmdDataset import HSPMDDataset
 from typing import Dict
 import torch
 
@@ -16,7 +16,7 @@ import sys
 from dataclasses import dataclass
 
 @dataclass
-class LLaMaDatasetConfig(BlendedHetuDatasetConfig):
+class LLaMaDatasetConfig(BlendedHSPMDDatasetConfig):
     
     reset_position_ids: bool = None
     reset_attention_mask: bool = None
@@ -33,7 +33,7 @@ class LLaMaDatasetConfig(BlendedHetuDatasetConfig):
         assert self.eod_mask_loss is not None
 
 
-class LLaMAJsonDataset(HetuDataset):
+class LLaMAJsonDataset(HSPMDDataset):
     def __init__(
         self,
         indexed_dataset: MMapIndexedDataset,
