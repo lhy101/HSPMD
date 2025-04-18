@@ -4,7 +4,7 @@ import time
 import os
 import ast
 import numpy as np
-import hspmd as ht
+import hspmd
 from queue import Queue
 from typing import List, Dict, Any
 from .utils import *
@@ -25,12 +25,12 @@ end_time = 0
         
 class TrainerCrucialOps(Args):
     def __init__(self, **kwargs):
-        self.input_ids: ht.Tensor = kwargs["input_ids"]
-        self.position_ids: ht.Tensor = kwargs["position_ids"]
-        self.token_type_ids: ht.Tensor = kwargs["token_type_ids"]
-        self.masked_lm_labels: ht.Tensor = kwargs["masked_lm_labels"]
-        self.loss_op: ht.Tensor = kwargs["loss_op"]
-        self.train_op: ht.Tensor = kwargs["train_op"]
+        self.input_ids: hspmd.Tensor = kwargs["input_ids"]
+        self.position_ids: hspmd.Tensor = kwargs["position_ids"]
+        self.token_type_ids: hspmd.Tensor = kwargs["token_type_ids"]
+        self.masked_lm_labels: hspmd.Tensor = kwargs["masked_lm_labels"]
+        self.loss_op: hspmd.Tensor = kwargs["loss_op"]
+        self.train_op: hspmd.Tensor = kwargs["train_op"]
 
 class Trainer:
     def __init__(
@@ -65,12 +65,12 @@ class Trainer:
         self.create_dataset(args)
         self.build_data_iter(args)
         # 2. Build Computation Graph
-        with ht.graph("define_and_run", num_strategy=len(ds_parallel_configs)):
+        with hspmd.graph("define_and_run", num_strategy=len(ds_parallel_configs)):
             if args.bf16:
-                precision = "ht.bfloat16"
+                precision = "hspmd.bfloat16"
             else:
-                precision = "ht.float32"
-            with ht.autocast(eval(precision)):
+                precision = "hspmd.float32"
+            with hspmd.autocast(eval(precision)):
                 # print(f'{local_device}: use precision {precision}')
                 self.create_define_graph(args, ds_parallel_configs)
         self.is_built = True
@@ -101,10 +101,10 @@ class HotSPaTrainer(Trainer):
         dummy_size = dp_size * args.seq_len # just a dummy shape, will change depend on real data shape
 
         # 2. Build Placeholders
-        input_ids = ht.parallel_placeholder(ht.int64, global_shape=[dummy_size], ds_hierarchy=input_ds_hierarchy, device_group_hierarchy=input_dg_hierarchy, name='input_ids')
-        masked_lm_labels = ht.parallel_placeholder(ht.int64, global_shape=[dummy_size], ds_hierarchy=label_ds_hierarchy, device_group_hierarchy=label_dg_hierarchy, name='masked_lm_labels')
-        position_ids = ht.parallel_placeholder(ht.int64, global_shape=[dummy_size], ds_hierarchy=input_ds_hierarchy, device_group_hierarchy=input_dg_hierarchy, name='position_ids')
-        token_type_ids = ht.parallel_placeholder(ht.int64, global_shape=[dummy_size], ds_hierarchy=input_ds_hierarchy, device_group_hierarchy=input_dg_hierarchy, name='token_type_ids')
+        input_ids = hspmd.parallel_placeholder(hspmd.int64, global_shape=[dummy_size], ds_hierarchy=input_ds_hierarchy, device_group_hierarchy=input_dg_hierarchy, name='input_ids')
+        masked_lm_labels = hspmd.parallel_placeholder(hspmd.int64, global_shape=[dummy_size], ds_hierarchy=label_ds_hierarchy, device_group_hierarchy=label_dg_hierarchy, name='masked_lm_labels')
+        position_ids = hspmd.parallel_placeholder(hspmd.int64, global_shape=[dummy_size], ds_hierarchy=input_ds_hierarchy, device_group_hierarchy=input_dg_hierarchy, name='position_ids')
+        token_type_ids = hspmd.parallel_placeholder(hspmd.int64, global_shape=[dummy_size], ds_hierarchy=input_ds_hierarchy, device_group_hierarchy=input_dg_hierarchy, name='token_type_ids')
         
         # 3. Build Model Weight
         model = self.model_wrapper.create_model(ds_parallel_configs)
@@ -114,8 +114,8 @@ class HotSPaTrainer(Trainer):
         config.cu_seqlens_list = []
         for block_id, block in enumerate(model.transformer.h):
             config.cu_seqlens_list.append(
-                ht.parallel_placeholder(
-                    ht.int32, 
+                hspmd.parallel_placeholder(
+                    hspmd.int32, 
                     global_shape=[dummy_size], 
                     ds_hierarchy=block.attn.qkv_dense.ds_union_map['split0_dup'], 
                     device_group_hierarchy=block.attn.qkv_dense.device_group_unions,
@@ -129,8 +129,8 @@ class HotSPaTrainer(Trainer):
         for i in range(len(input_ds_hierarchy)):
             cur_dp = input_ds_hierarchy[i].get(0).get_dim(0) # dp_i for strategy_i
             config.multi_seq_lens_symbol.append([input_ids.symbolic_shape[0] for _ in range(cur_dp)])
-            config.multi_cp_group_symbol.append([ht.IntSymbol(i) for i in range(cur_dp)])
-        config.max_seqlen_symbol = ht.IntSymbol(1)
+            config.multi_cp_group_symbol.append([hspmd.IntSymbol(i) for i in range(cur_dp)])
+        config.max_seqlen_symbol = hspmd.IntSymbol(1)
 
         # 5. Build Forward Graph
         loss_op = model(input_ids=input_ids,
@@ -155,8 +155,8 @@ class HotSPaTrainer(Trainer):
         self, 
         args, 
         ds_parallel_configs,
-        local_device: ht.device,
-        all_devices: ht.DeviceGroup,
+        local_device: hspmd.device,
+        all_devices: hspmd.DeviceGroup,
         ):
         assert self.is_built == True and self.dataset != None and self.data_iter != None, \
             "must build graph and dataset before HotSPa training!"
@@ -171,9 +171,9 @@ class HotSPaTrainer(Trainer):
             all_devices=all_devices
         )
         if args.bf16:
-            precision = "ht.bfloat16"
+            precision = "hspmd.bfloat16"
         else:
-            precision = "ht.float32"
+            precision = "hspmd.float32"
 
         self.feed_dicts = Queue()
         def cache_feed_dict(feed_dict):
@@ -192,9 +192,9 @@ class HotSPaTrainer(Trainer):
                 buckets = sort_and_pack_for_global_batch(global_batch, self.dataset.pad_id(), args.bucket_sizes, False)
                 # enable parallelism hot switching
                 for strategy_id in range(args.num_strategy + 1):
-                    alloc_run_level = ht.run_level("alloc")
-                    grad_run_level = ht.run_level("grad")
-                    update_run_level = ht.run_level("update")
+                    alloc_run_level = hspmd.run_level("alloc")
+                    grad_run_level = hspmd.run_level("grad")
+                    update_run_level = hspmd.run_level("update")
                     if strategy_id == 0:
                         cur_run_level = alloc_run_level
                         bucket = buckets[0]
@@ -206,7 +206,7 @@ class HotSPaTrainer(Trainer):
                         cur_run_level = grad_run_level
                         bucket = buckets[args.num_strategy - strategy_id]
                     # run sperate strategy for bucket
-                    with ht.autocast(eval(precision)):
+                    with hspmd.autocast(eval(precision)):
                         consumed_samples = self.run_plan(
                             args,
                             ds_parallel_configs,
@@ -314,7 +314,7 @@ class HotSPaTrainer(Trainer):
         else: # fake data; feed_dict={} will cause segment fault?
             print("Need feed dict data!")
             os.killpg(0, signal.SIGTERM)
-        if run_level == ht.run_level("alloc") or (len(ds_parallel_configs) == 1 and run_level == ht.run_level("update")):
+        if run_level == hspmd.run_level("alloc") or (len(ds_parallel_configs) == 1 and run_level == hspmd.run_level("update")):
             start_time = time.time()
         if args.run_memory_experiment and step == 0:
             os.environ['HSPMD_MEMORY_LOG_FILE'] = args.memory_file
@@ -338,10 +338,10 @@ class HotSPaTrainer(Trainer):
                 del os.environ['HSPMD_MEMORY_LOG_FILE'] 
             return consumed_samples
         
-        if run_level != ht.run_level("alloc"):
+        if run_level != hspmd.run_level("alloc"):
             consumed_samples += input_bucket.original_batch_size()
 
-        if run_level == ht.run_level("update"):
+        if run_level == hspmd.run_level("update"):
             # NOTE: update new step end time
             end_time = time.time()
             if label_device_group != None:
@@ -404,12 +404,12 @@ class MalleusTrainer(Trainer):
         # Build Dataset
         self.create_dataset(args)
         # Build Computation Graph
-        with ht.graph("define_and_run", num_strategy=len(ds_parallel_configs)):
+        with hspmd.graph("define_and_run", num_strategy=len(ds_parallel_configs)):
             if ctxs.bf16:
-                precision = "ht.bfloat16"
+                precision = "hspmd.bfloat16"
             else:
-                precision = "ht.float32"
-            with ht.autocast(eval(precision)):            
+                precision = "hspmd.float32"
+            with hspmd.autocast(eval(precision)):            
                 self.create_define_graph(args, ds_parallel_configs)
         self.is_built = True
         self.build_ctxs: TrainerCtxs = ctxs
@@ -425,12 +425,12 @@ class MalleusTrainer(Trainer):
         '''
         assert self.is_built == True, "must build graph before add strategy"
         print("Adding new strategies...")
-        with ht.merge_strategy(target_graph="default", num_strategy=len(ds_parallel_configs)):
+        with hspmd.merge_strategy(target_graph="default", num_strategy=len(ds_parallel_configs)):
             if self.build_ctxs.bf16:
-                precision = "ht.bfloat16"
+                precision = "hspmd.bfloat16"
             else:
-                precision = "ht.float32"
-            with ht.autocast(eval(precision)):            
+                precision = "hspmd.float32"
+            with hspmd.autocast(eval(precision)):            
                 self.create_define_graph(args, ds_parallel_configs)
         
     def create_define_graph(self, args, ds_parallel_configs):  
@@ -448,10 +448,10 @@ class MalleusTrainer(Trainer):
         default_seq_len = args.seq_len 
         
         # Build Placeholders 
-        input_ids = ht.parallel_placeholder(ht.int64, global_shape=[default_mbs_times_dp, default_seq_len], ds_hierarchy=input_ds_hierarchy, device_group_hierarchy=input_dg_hierarchy, name='input_ids')
-        position_ids = ht.parallel_placeholder(ht.int64, global_shape=[default_mbs_times_dp, default_seq_len], ds_hierarchy=input_ds_hierarchy, device_group_hierarchy=input_dg_hierarchy, name='position_ids')
-        token_type_ids = ht.parallel_placeholder(ht.int64, global_shape=[default_mbs_times_dp, default_seq_len], ds_hierarchy=input_ds_hierarchy, device_group_hierarchy=input_dg_hierarchy, name='token_type_ids')
-        masked_lm_labels = ht.parallel_placeholder(ht.int64, global_shape=[default_mbs_times_dp, default_seq_len], ds_hierarchy=label_ds_hierarchy, device_group_hierarchy=label_dg_hierarchy, name='masked_lm_labels')
+        input_ids = hspmd.parallel_placeholder(hspmd.int64, global_shape=[default_mbs_times_dp, default_seq_len], ds_hierarchy=input_ds_hierarchy, device_group_hierarchy=input_dg_hierarchy, name='input_ids')
+        position_ids = hspmd.parallel_placeholder(hspmd.int64, global_shape=[default_mbs_times_dp, default_seq_len], ds_hierarchy=input_ds_hierarchy, device_group_hierarchy=input_dg_hierarchy, name='position_ids')
+        token_type_ids = hspmd.parallel_placeholder(hspmd.int64, global_shape=[default_mbs_times_dp, default_seq_len], ds_hierarchy=input_ds_hierarchy, device_group_hierarchy=input_dg_hierarchy, name='token_type_ids')
+        masked_lm_labels = hspmd.parallel_placeholder(hspmd.int64, global_shape=[default_mbs_times_dp, default_seq_len], ds_hierarchy=label_ds_hierarchy, device_group_hierarchy=label_dg_hierarchy, name='masked_lm_labels')
         
         # Build Symbolic Shape
         self.model_wrapper.model_config.mbs_times_dp_symbol.set_data(default_mbs_times_dp)
@@ -486,8 +486,8 @@ class MalleusTrainer(Trainer):
     def setup_stragglers(
         self, 
         args,
-        local_device: ht.device, 
-        all_devices: ht.DeviceGroup
+        local_device: hspmd.device, 
+        all_devices: hspmd.DeviceGroup
     ):
         '''
         args:
@@ -515,7 +515,7 @@ class MalleusTrainer(Trainer):
         for _ in range(PRE_PROFILING_ROUND):
             self.local_straggler.run_profile()
         self.local_straggler.end_profile()
-        ht.global_comm_barrier_rpc()
+        hspmd.global_comm_barrier_rpc()
         all_workload_baseline_time = []
         for device_idx in range(all_devices.num_devices):
             straggler_info = Straggler.read_profile(self.log_file_path + "_" + str(device_idx) + ".txt", PRE_PROFILING_ROUND - 1)
@@ -537,7 +537,7 @@ class MalleusTrainer(Trainer):
         unused_devices = []
         sliding_window = SLIDING_WINDOW
         
-        ht.global_comm_barrier_rpc()
+        hspmd.global_comm_barrier_rpc()
         for rank_idx in range(comm_args.all_devices.num_devices):
             device_idx = strategy_args.rank_to_device_mapping[rank_idx]
             curr_log_file = self.log_file_path + "_" + str(device_idx) + ".txt"
@@ -578,7 +578,7 @@ class MalleusTrainer(Trainer):
                     straggler_ratio = ((straggler_compute_time / straggler_layers / straggler_mbn / alpha) 
                         / (self.build_ctxs.normal_compute_time / self.build_ctxs.normal_layers / self.build_ctxs.normal_mbn))
                     used_devices_sr[device_idx] = straggler_ratio          
-        ht.global_comm_barrier_rpc()
+        hspmd.global_comm_barrier_rpc()
         
         new_strategy_model = StrategyModel(
             self.build_ctxs,
@@ -621,8 +621,8 @@ class MalleusTrainer(Trainer):
             self, 
             args, 
             ds_parallel_configs, 
-            local_device: ht.device,
-            all_devices: ht.DeviceGroup,
+            local_device: hspmd.device,
+            all_devices: hspmd.DeviceGroup,
             strategy_id: int = 0,
             elastic: bool = True
         ):
@@ -668,12 +668,12 @@ class MalleusTrainer(Trainer):
             elastic=elastic
         )
         if self.build_ctxs.bf16:
-            precision = "ht.bfloat16"
+            precision = "hspmd.bfloat16"
         else:
-            precision = "ht.float32"
+            precision = "hspmd.float32"
         if elastic:
             self.setup_stragglers(args, local_device, all_devices)
-        with ht.autocast(eval(precision)):
+        with hspmd.autocast(eval(precision)):
             is_complete, rest_of_dataset = self.run_plan(
                 initial_args, 
                 initial_dataset_args, 
@@ -705,10 +705,10 @@ class MalleusTrainer(Trainer):
                     all_devices=all_devices
                 )
                 if self.build_ctxs.bf16:
-                    precision = "ht.bfloat16"
+                    precision = "hspmd.bfloat16"
                 else:
-                    precision = "ht.float32"
-                with ht.autocast(eval(precision)):
+                    precision = "hspmd.float32"
+                with hspmd.autocast(eval(precision)):
                     is_complete, rest_of_dataset = self.run_plan(
                         initial_args, 
                         rest_of_dataset, 
@@ -726,7 +726,7 @@ class MalleusTrainer(Trainer):
             comm_args: TrainerCommArgs,  
             envs: TrainerEnvs,
             strategy_id: int = 0, 
-            run_level: int = ht.run_level("update")
+            run_level: int = hspmd.run_level("update")
         ):
         '''
         args:
@@ -943,10 +943,10 @@ class MalleusTrainer(Trainer):
                         del os.environ["HSPMD_STRAGGLER_LOG_FILE"] 
                     # TODO: 目前跑实验会直接强行终止
                     os.killpg(0, signal.SIGTERM)
-                ht.global_comm_barrier_rpc()
+                hspmd.global_comm_barrier_rpc()
                 end_time = time.time()
                 curr_consumed_samples += args.global_batch_size
-                if run_level == ht.run_level("update"):
+                if run_level == hspmd.run_level("update"):
                     if label_device_group != None:
                         loss_out = results[0].numpy(force=True).mean()
                         print(f"{comm_args.local_device}: [Epoch {dataset_args.epoch}] (step {step}, consumed_samples = {curr_consumed_samples}): loss = {loss_out:.3f}, time = {end_time - start_time:.4f}")

@@ -1,6 +1,6 @@
 import os
 import socket
-import hspmd as ht
+import hspmd
 from hspmd.rpc.kv_store import KeyValueStoreClient, ProducerConsumer
 
 def distributed_init(ngpus, server_addr, server_port, need_kv_store=False):
@@ -10,9 +10,9 @@ def distributed_init(ngpus, server_addr, server_port, need_kv_store=False):
         os.environ['HSPMD_LOCAL_HOSTNAME'] = hostname
     else:
         print(f"Environment variable 'HSPMD_LOCAL_HOSTNAME' already set: {os.environ['HSPMD_LOCAL_HOSTNAME']}")
-    ht.init_comm_group(ngpus, server_address = server_addr + ":" + server_port)
-    local_device = ht.local_device()
-    all_devices = ht.global_device_group()
+    hspmd.init_comm_group(ngpus, server_address = server_addr + ":" + server_port)
+    local_device = hspmd.local_device()
+    all_devices = hspmd.global_device_group()
     if need_kv_store:
         kv_store_client = KeyValueStoreClient(address = server_addr + ":" + server_port)
         return local_device, all_devices, kv_store_client
@@ -21,7 +21,7 @@ def distributed_init(ngpus, server_addr, server_port, need_kv_store=False):
 def parallel_data_provider(global_data, ds_union, device_group_index, device_index):
     ds = ds_union.get_local(device_group_index)
     order, states = ds.order, ds.states
-    local_map = ht.map_to_local_data(ds, device_index)
+    local_map = hspmd.map_to_local_data(ds, device_index)
     local_data = global_data.copy()
     for dim in order:
         if dim < 0:
@@ -41,7 +41,7 @@ def parallel_multi_data_provider(global_data, ds_unions, device_group_unions):
         device_group_index, device_index = get_local_index(device_group_union)
         ds = ds_union.get_local(device_group_index)
         order, states = ds.order, ds.states
-        local_map = ht.map_to_local_data(ds, device_index)
+        local_map = hspmd.map_to_local_data(ds, device_index)
         local_data = global_data.copy()
         for dim in order:
             if dim < 0:
@@ -55,7 +55,7 @@ def parallel_multi_data_provider(global_data, ds_unions, device_group_unions):
     return multi_local_data
 
 def get_local_index(device_group_union):
-    local_device = ht.local_device()
+    local_device = hspmd.local_device()
     device_group_index = -1
     device_index = -1
     for device_group_index, device_group in enumerate(device_group_union):
@@ -68,7 +68,7 @@ def get_local_index(device_group_union):
     return device_group_index, device_index
 
 def get_device_index(device_group):
-    local_device = ht.local_device()
+    local_device = hspmd.local_device()
     if device_group.contains(local_device):
         device_index = device_group.get_index(local_device)
     else: # for pipeline parallel other stages

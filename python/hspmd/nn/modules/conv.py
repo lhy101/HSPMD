@@ -24,7 +24,7 @@ class ConvNd(Module):
             self.weight = hspmd.nn.functional.kaiming_uniform_([out_channels, in_channels, *kernel_size], 
                                                               a = math.sqrt(5), requires_grad=True)
             if bias:
-                fan_in, _ = hspmd.nn.functional._calculate_fan_in_and_fan_out(self.weight.shape)
+                fan_in, _ = hspmd.nn.functional._calculate_fan_in_and_fan_out(self.weighspmd.shape)
                 bound = 1 / math.sqrt(fan_in)
                 self.bias = hspmd.rand([out_channels], -bound, bound, requires_grad=True)
             else:
@@ -60,6 +60,6 @@ class Conv2d(ConvNd):
         
     def to(self, dtype):
         with hspmd.graph("define_and_run"):
-            self.weight = self.weight.to(datatype = dtype)
+            self.weight = self.weighspmd.to(datatype = dtype)
             if (self.bias is not None):
                 self.bias = self.bias.to(datatype = dtype)

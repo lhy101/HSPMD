@@ -1,6 +1,6 @@
 import json
 import fcntl
-import hspmd as ht
+import hspmd
 from queue import Queue
 
 def read_with_lock(file_path):
@@ -43,12 +43,12 @@ def config2ds(config):
             zero = config['zero']
         else:
             raise RuntimeError(f"unsupported type {config['type']}!")
-        ds = ht.DistributedStates(dummy_num_devices, states, order, zero)
-        all_devices = ht.global_device_group()
-        dg = ht.DeviceGroup([all_devices.get(device_id) for device_id in config['device_group_union'][hetero_num]])
+        ds = hspmd.DistributedStates(dummy_num_devices, states, order, zero)
+        all_devices = hspmd.global_device_group()
+        dg = hspmd.DeviceGroup([all_devices.get(device_id) for device_id in config['device_group_union'][hetero_num]])
         ds_list.append(ds)
         dg_list.append(dg)
-    return ht.DistributedStatesUnion(ds_list, hetero_dim), dg_list
+    return hspmd.DistributedStatesUnion(ds_list, hetero_dim), dg_list
 
 def read_ds_parallel_config(ds_parallel_config, num_strategy):
     # read ds_parallel_config from json file

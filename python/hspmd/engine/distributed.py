@@ -1,16 +1,16 @@
 import os
 import ptvsd
 import socket
-import hspmd as ht
+import hspmd
 
 def distributed_init():
     hostname = socket.gethostname()
     # os.environ['HSPMD_LOCAL_HOSTNAME'] = os.environ['HOSTNAME']
     os.environ['HSPMD_LOCAL_HOSTNAME'] = hostname
 
-    ht.init_comm_group(8)
-    local_device = ht.local_device()
-    all_devices = ht.global_device_group()
+    hspmd.init_comm_group(8)
+    local_device = hspmd.local_device()
+    all_devices = hspmd.global_device_group()
     if local_device.index == 0:
         print(f'local_device: {local_device}, all_devices: {all_devices}')
     # used for debug

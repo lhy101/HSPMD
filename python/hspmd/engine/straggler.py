@@ -1,7 +1,7 @@
 import time
 import os
 import numpy as np
-import hspmd as ht
+import hspmd
 from .utils import Args
 
 WORKLOAD_ITERS = 20
@@ -20,7 +20,7 @@ class WorkloadInfo(Args):
 class Straggler(Args):
     def __init__(
         self,
-        local_device: ht.device, 
+        local_device: hspmd.device, 
         log_file: str,
         workload_info: WorkloadInfo
     ):
@@ -64,8 +64,8 @@ class Straggler(Args):
         del os.environ["HSPMD_STRAGGLER_LOG_FILE"]
         
     def run_profile(self):
-        with ht.graph("eager", create_new=True, prefix="tmp", tmp=True):
-            with ht.context(eager_device=self.local_device):
+        with hspmd.graph("eager", create_new=True, prefix="tmp", tmp=True):
+            with hspmd.context(eager_device=self.local_device):
                 time_elapse = self.run_workload()
         with open(self.log_file, "a") as file:
             file.write(f"{time_elapse}\n")
@@ -79,14 +79,14 @@ class Straggler(Args):
         x_np = np.random.randn(*shape_x).astype(np.float32)
         y_np = np.random.randn(*shape_y).astype(np.float32)
         z_np = np.random.randn(*shape_z).astype(np.float32)
-        x = ht.from_numpy(x_np)
-        y = ht.from_numpy(y_np)
-        z = ht.from_numpy(z_np)
-        x = ht.matmul(ht.matmul(x, y), z)
+        x = hspmd.from_numpy(x_np)
+        y = hspmd.from_numpy(y_np)
+        z = hspmd.from_numpy(z_np)
+        x = hspmd.matmul(hspmd.matmul(x, y), z)
         x_np = x.numpy(force=True)
         start_time = time.time()
         for i in range(WORKLOAD_ITERS):
-            x = ht.matmul(ht.matmul(x, y), z)
+            x = hspmd.matmul(hspmd.matmul(x, y), z)
         x_np = x.numpy(force=True)
         end_time = time.time()
         return end_time - start_time

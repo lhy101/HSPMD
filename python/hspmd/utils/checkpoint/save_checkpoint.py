@@ -1,4 +1,4 @@
-import hspmd as ht
+import hspmd
 import os
 import torch
 import numpy as np
@@ -46,15 +46,15 @@ def change_query_key_value_ordering(param, num_splits, num_heads, hidden_size):
 # 请保证gpu有足够的显存进行allgather
 def allgather_intra_group_param(param, value, local_device, idx):
     # print("allgather param:", param, "value:", value, "ds:", param.distributed_states)
-        with ht.graph("define_and_run", create_new=True, prefix="save_" + param.name + str(idx)):
+        with hspmd.graph("define_and_run", create_new=True, prefix="save_" + param.name + str(idx)):
             device_group = param.get_device_group()
-            local_value = ht.parallel_placeholder(param.dtype, global_shape=param.global_shape, 
+            local_value = hspmd.parallel_placeholder(param.dtype, global_shape=param.global_shape, 
                                                 ds=param.distributed_states, device_group=device_group)
             num_devices = device_group.num_devices
-            ds_dup = ht.DistributedStates(num_devices, {-1: num_devices}, [-1])
-            global_value = ht.comm(local_value, ds_dup)
+            ds_dup = hspmd.DistributedStates(num_devices, {-1: num_devices}, [-1])
+            global_value = hspmd.comm(local_value, ds_dup)
             # TODO: 目前无法fetch被替换的comm op
-            bias = ht.parallel_parameter(eval(f'ht.zeros_initializer()'), 
+            bias = hspmd.parallel_parameter(eval(f'hspmd.zeros_initializer()'), 
                                                 global_value.shape, ds_dup, device_group.get_index(local_device), 
                                                 dtype=param.dtype, requires_grad=False, 
                                                 device_group=device_group, name='zeros')    
@@ -73,7 +73,7 @@ def save_state_dict(state_dict, checkpoint_file):
 # Save a PyTorch checkpoint
 def save_checkpoint(model, optimizer, path, config=None, local_device=None):
     
-    # with ht.graph("define_and_run", create_new=True, prefix="save_model"):
+    # with hspmd.graph("define_and_run", create_new=True, prefix="save_model"):
         # Numpy -> Tensor
     global_state_dict = OrderedDict()
     global_state_dict["model"] = OrderedDict()

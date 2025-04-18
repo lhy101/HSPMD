@@ -64,21 +64,21 @@ class TrainerStrategyArgs(Args):
         
 class TrainerCommArgs(Args):
     def __init__(self, **kwargs):
-        self.input_ds_union: ht.DistributedStatesUnion = kwargs["input_ds_union"]
-        self.input_device_group_union: List[ht.DeviceGroup] = kwargs["input_device_group_union"]
-        self.label_ds_union: ht.DistributedStatesUnion = kwargs["label_ds_union"]
-        self.label_device_group_union: List[ht.DeviceGroup] = kwargs["label_device_group_union"]
-        self.local_device: ht.device = kwargs["local_device"]
-        self.all_devices: ht.DeviceGroup = kwargs["all_devices"]
+        self.input_ds_union: hspmd.DistributedStatesUnion = kwargs["input_ds_union"]
+        self.input_device_group_union: List[hspmd.DeviceGroup] = kwargs["input_device_group_union"]
+        self.label_ds_union: hspmd.DistributedStatesUnion = kwargs["label_ds_union"]
+        self.label_device_group_union: List[hspmd.DeviceGroup] = kwargs["label_device_group_union"]
+        self.local_device: hspmd.device = kwargs["local_device"]
+        self.all_devices: hspmd.DeviceGroup = kwargs["all_devices"]
 
 class TrainerCommAllArgs(Args):
     def __init__(self, **kwargs):
-        self.input_ds_hierarchy: ht.DistributedStatesHierarchy = kwargs["input_ds_hierarchy"]
-        self.input_device_group_hierarchy: ht.DeviceGroupHierarchy = kwargs["input_device_group_hierarchy"]
-        self.label_ds_hierarchy: ht.DistributedStatesHierarchy = kwargs["label_ds_hierarchy"]
-        self.label_device_group_hierarchy: ht.DeviceGroupHierarchy = kwargs["label_device_group_hierarchy"]
-        self.local_device: ht.device = kwargs["local_device"]
-        self.all_devices: ht.DeviceGroup = kwargs["all_devices"]
+        self.input_ds_hierarchy: hspmd.DistributedStatesHierarchy = kwargs["input_ds_hierarchy"]
+        self.input_device_group_hierarchy: hspmd.DeviceGroupHierarchy = kwargs["input_device_group_hierarchy"]
+        self.label_ds_hierarchy: hspmd.DistributedStatesHierarchy = kwargs["label_ds_hierarchy"]
+        self.label_device_group_hierarchy: hspmd.DeviceGroupHierarchy = kwargs["label_device_group_hierarchy"]
+        self.local_device: hspmd.device = kwargs["local_device"]
+        self.all_devices: hspmd.DeviceGroup = kwargs["all_devices"]
         
 class TrainerEnvs(Args):
     def __init__(self, **kwargs):

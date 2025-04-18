@@ -3,7 +3,7 @@ import logging
 import sys
 import os
 import multiprocessing
-import hspmd as ht
+import hspmd
 from concurrent.futures import ProcessPoolExecutor
 from .client import KeyValueStoreClient
 
@@ -55,7 +55,7 @@ class ProducerConsumer:
         )
         self.data_store = client.register_dict(dict_name)
         self.futures = []
-        ht.setup_logging()
+        hspmd.setup_logging()
         logging.info("ProducerConsumer initialized.")
 
     def produce(self, key, func, *args, **kwargs):
@@ -70,7 +70,7 @@ class ProducerConsumer:
         try:
             data = self.data_store.get(key)
             if global_barrier:
-                ht.global_comm_barrier_rpc()
+                hspmd.global_comm_barrier_rpc()
             self.data_store.remove(key)
             return data
         except KeyError as e:

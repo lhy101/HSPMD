@@ -27,7 +27,7 @@ class Linear(Module):
             self.out_features = out_features
             self.weight = hspmd.nn.functional.kaiming_uniform_([out_features, in_features], a = math.sqrt(5), requires_grad=True, device_groups=device_groups)
             if bias:
-                fan_in, _ = hspmd.nn.functional._calculate_fan_in_and_fan_out(self.weight.shape)
+                fan_in, _ = hspmd.nn.functional._calculate_fan_in_and_fan_out(self.weighspmd.shape)
                 bound = 1. / math.sqrt(fan_in) if fan_in > 0 else 0
                 self.bias = hspmd.rand([out_features], -bound, bound, requires_grad=True, device_groups=device_groups)
             else:
