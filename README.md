@@ -1,12 +1,12 @@
 # HSPMD
 
-This repository contains the implementation of HSPMD, a novel framework for efficient deep learning that addresses spatial and temporal workload heterogeneity. It includes our system prototype and scripts to reproduce all results from our paper entitled *HSPMD: Hierarchical and Heterogeneous Single Program Multiple Data for General and Scalable Deep Learning Training*.
+This repository contains the implementation of HSPMD, a novel framework for efficient deep learning that addresses spatial and temporal workload heterogeneity. It includes our system prototype and scripts to reproduce all results from our paper entitled *HSPMD: Hierarchical and Heterogeneous SPMD for General and Scalable DL Training*.
 
 ## Key Features
 
 - Hierarchical and heterogeneous sharding annotations and communication resolution.
 - Progressive graph specialization and dynamic graph switching techniques.
-- Optimized solutions for three scenarios: 1. heterogeneous clusters, 2. elastic scenarios, and 3. mixed-length data.
+- Optimized solutions for three scenarios: 1. heterogeneous clusters, 2. elastic training, and 3. mixed-length data.
 
 ## 1. Build & Compile Our System
 
@@ -30,24 +30,24 @@ For specific scenarios (e.g., mixed-length data), cost models are required to de
 pip install pulp
 ```
 
-## 2. HSPMD Annotations
+## 2. HSPMD Sharding Annotations
 
-Users can manually define all annotations from scratch to build a model. For convenience and efficiency, we also offer a quick annotation generation solution. For instance, with a Llama-2 32B model configuration, we can describe a strategy as follows:
+Users can manually define an annotation plan (i.e., an annotation dictionary of all leaf operators and `Comm` operators) from scratch to build a model. For convenience and efficiency, we also offer a quick annotation generation solution. For instance, with a Llama-2 32B model configuration, we can describe a strategy as follows:
 
 ```bash
 # 24*H20+15*H800
 NUM_GPUS=44
-DP=3
-CP_LIST="[1,1,1]"
+DP=3 # DP Degree
+CP_LIST="[1,1,1]" # Different CP Degrees
 TP=4 # Max TP Degree
-LAYERS_NUM_LIST="[[7,7,23,23],[11,11,38],[12,11,24,13]]"
-MICRO_BATCH_NUM_LIST="[29,18,17]"
-UNUSED_RANK="[38,39,41,42,43]"
+LAYERS_NUM_LIST="[[7,7,23,23],[11,11,38],[12,11,24,13]]" # Indicate Different PP Degrees
+MICRO_BATCH_NUM_LIST="[29,18,17]" 
+UNUSED_RANK="[38,39,41,42,43]" # Indicate Different TP Degrees
 RANK_TO_DEVICE_MAPPING="{0:0,1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:24,9:25,10:26,11:27,12:28,13:29,14:30,15:31,16:8,17:9,18:10,19:11,20:12,21:13,22:14,23:15,24:32,25:33,26:34,27:35,28:16,29:17,30:18,31:19,32:20,33:21,34:22,35:23,36:36,37:37,38:39,39:40,40:38,41:41,42:42,43:43}"
 SEQ_LEN_LIST="[4096, 4096, 4096]"
 ```
 
-By running `python -m hspmd.models.llama.generate_llama_hetero_4d_config`, this packed strategy expression will be converted into actual HSPMD sharding annotations, generating a JSON file containing all weight annotations for the llama model. For instance, in the above scenario, the parameter `llama.blocks.block59.attn.dense` will have:
+By running `python -m hspmd.models.llama.generate_llama_hetero_4d_config`, this packed strategy expression will be converted into actual HSPMD sharding annotations, generating a JSON file containing all necessary annotations for the llama model. For instance, in the above scenario, the parameter `llama.blocks.block59.attn.dense` will have:
 
 
 ```json
@@ -63,9 +63,9 @@ Here, the `split` and `dup` lists describe HSPMD's *Distributed States Union (DS
 
 This JSON file encapsulates all annotations for the current parallel strategy and will be passed to `train.py`.
 
-## 3. Communication Operators
+## 3. Communication Resolution
 
-As described in our paper, we explicitly declare *CommOps* in the *User-defined Graph* to enable transformations between annotations. For example, in `python/hspmd/models/llama/llama_model.py`, we provide a llama model definition that includes *CommOp* declarations, such as:
+As described in our paper, we specify abstract *Comm* operators in the *Defined Graph* to enable transformations between annotations. For example, in `python/hspmd/models/llama/llama_model.py`, we provide a llama model definition that includes *Comm* declarations, such as:
 
 ```python
 ...
@@ -76,7 +76,7 @@ else:
 ...
 ```
 
-These `hspmd.comm` calls define *CommOps*, enabling transformations between arbitrary HSPMD annotations. Eventually, these *CommOps* will be replaced with concrete communication operators (e.g., send-receive) for actual execution.
+These `hspmd.comm` calls define *Comm*, enabling transformations between arbitrary HSPMD annotations. Eventually, these *Comm* will be replaced with concrete communication operators (e.g., send-receive) for actual execution.
 
 ## 4. Graph Specialization and Switching
 
