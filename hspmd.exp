@@ -1,0 +1,4 @@
+#!/bin/bash
+export HSPMD_HOME="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+export LD_LIBRARY_PATH="${HSPMD_HOME}/build/lib:${LD_LIBRARY_PATH}"
+export PYTHONPATH="${HSPMD_HOME}/python/hspmd/rpc:${HSPMD_HOME}/python:${HSPMD_HOME}/build/lib:${PYTHONPATH}"
